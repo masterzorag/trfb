@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <time.h>
-#include <c11threads.h>
+//#include <c11threads.h>
 #include <sys/socket.h>
 
 /* Tiny RFB (VNC) server implementation */
@@ -53,7 +53,7 @@ typedef struct trfb_format {
 } trfb_format_t;
 
 typedef struct trfb_framebuffer {
-	mtx_t lock;
+//	mtx_t lock;
 
 	unsigned width, height;
 	/**
@@ -171,8 +171,6 @@ typedef struct trfb_connection trfb_connection_t;
 
 struct trfb_server {
 	int sock;
-	thrd_t thread;
-
 #define TRFB_STATE_STOPPED  0x0000
 #define TRFB_STATE_WORKING  0x0001
 #define TRFB_STATE_STOP     0x0002
@@ -180,30 +178,20 @@ struct trfb_server {
 	unsigned state;
 
 	trfb_framebuffer_t *fb;
-
-	mtx_t lock;
-
 	// struct tv changed; /* last changed */
 	// struct tv last_access;
-
 	trfb_connection_t *clients;
 };
 
 struct trfb_connection {
 	trfb_server_t *server;
-
 	trfb_protocol_t version;
-
 	unsigned state;
 
 	/* Client information */
 	struct sockaddr addr;
 	socklen_t addrlen;
 	char name[64];
-
-	thrd_t thread;
-	mtx_t lock;
-
 	/*
 	 * Array of pixels. Last state for this client.
 	 * Width and height are taken from server

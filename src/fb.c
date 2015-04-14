@@ -106,13 +106,6 @@ trfb_framebuffer_t* trfb_framebuffer_create(unsigned width, unsigned height, uns
 		return NULL;
 	}
 
-	if (mtx_init(&fb->lock, mtx_plain) != thrd_success) {
-		free(fb->pixels);
-		free(fb);
-		trfb_msg("Can't create mutex");
-		return NULL;
-	}
-
 	return fb;
 }
 
@@ -148,7 +141,6 @@ void trfb_framebuffer_free(trfb_framebuffer_t *fb)
 {
 	if (fb) {
 		free(fb->pixels);
-		mtx_destroy(&fb->lock);
 		free(fb);
 	}
 }
@@ -346,5 +338,3 @@ void trfb_framebuffer_endian(trfb_framebuffer_t *fb, int is_be)
 		}
 	}
 }
-
-

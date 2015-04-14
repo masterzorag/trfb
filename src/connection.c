@@ -13,12 +13,13 @@ void trfb_connection_free(trfb_connection_t *con)
 {
 	trfb_framebuffer_free(con->fb);
 	trfb_io_free(con->io);
-	mtx_destroy(&con->lock);
 	free(con);
 }
 
 trfb_connection_t* trfb_connection_create(trfb_server_t *srv, int sock, struct sockaddr *addr, socklen_t addrlen)
 {
+	trfb_msg("I:trfb_connection_create");
+
 	trfb_connection_t *C = calloc(1, sizeof(trfb_connection_t));
 	char host[NI_MAXHOST];
 	char port[NI_MAXSERV];
@@ -35,6 +36,7 @@ trfb_connection_t* trfb_connection_create(trfb_server_t *srv, int sock, struct s
 		return NULL;
 	}
 
+	trfb_msg("I:trfb_io_socket_wrap(%d)", sock);
 	C->io = trfb_io_socket_wrap(sock);
 	if (!C->io) {
 		free(C);
@@ -45,7 +47,6 @@ trfb_connection_t* trfb_connection_create(trfb_server_t *srv, int sock, struct s
 	C->fb = NULL;
 	C->server = srv;
 
-	mtx_init(&C->lock, mtx_plain);
 	C->next = NULL;
 	C->state = TRFB_STATE_WORKING;
 	memcpy(&C->addr, addr, addrlen);
@@ -53,24 +54,28 @@ trfb_connection_t* trfb_connection_create(trfb_server_t *srv, int sock, struct s
 
 	/* Get name information in user-friendly form: */
 	rv = getnameinfo(addr, addrlen, host, sizeof(host), port, sizeof(port), 0);
+	
+	trfb_msg("I:getnameinfo [%d]", rv);
 	if (rv != 0) {
+		trfb_msg("W:getnameinfo [%d]", rv);
 		rv = getnameinfo(addr, addrlen, host, sizeof(host), port, sizeof(port), NI_NUMERICHOST | NI_NUMERICSERV);
 	}
+
 	if (rv != 0) {
 		snprintf(C->name, sizeof(C->name), "C-%d", rand() % 1000000);
-		trfb_msg("Can not determine client information. It will be %s", C->name);
+		trfb_msg("W:Can not determine client information. It will be %s", C->name);
 	} else {
 		snprintf(C->name, sizeof(C->name), "%s:%s", host, port);
 	}
-
+	
 	trfb_msg("I:starting operationing with client [%s]", C->name);
-
-	/* Run connection processing thread: */
-	if (thrd_create(&C->thread, connection, C) != thrd_success) {
-		free(C);
-		trfb_msg("Can't start thread");
-		return NULL;
-	}
+	sleep(2);
+	
+	/* Run connection processing: */
+	int res = connection(C);						// ---> jump into
+	
+	/* not reached */
+	printf("connection returns %d\n", res);
 
 	return C;
 }
@@ -133,7 +138,7 @@ static int negotiate(trfb_connection_t* con)
 
 	trfb_connection_read_all(con, buf, 1);
 	trfb_msg("I:ClientInit: %02X", buf[0]);
-
+	
 	/* Sending ServerInit: */
 	buf[0] = con->server->fb->width / 256;
 	buf[1] = con->server->fb->width % 256;
@@ -158,6 +163,8 @@ static int negotiate(trfb_connection_t* con)
 	buf[22] = 0;
 	buf[23] = 4; /* name length */
 	buf[24] = 'T'; buf[25] = 'E'; buf[26] = 'S'; buf[27] = 'T';
+	
+	trfb_msg("I:Sending ServerInit to client");
 	trfb_connection_write_all(con, buf, 28);
 
 	trfb_msg("I:Sent framebuffer information to client");
@@ -181,14 +188,10 @@ static void print_bin(const char *name, unsigned char *p, size_t l)
 
 static void check_stopped(trfb_connection_t *con)
 {
-	mtx_lock(&con->lock);
 	if (con->state == TRFB_STATE_STOP) {
 		trfb_msg("I:Connection stopped");
 		con->state = TRFB_STATE_STOPPED;
-		mtx_unlock(&con->lock);
-		thrd_exit(0);
 	}
-	mtx_unlock(&con->lock);
 }
 
 static void SetEncodings(trfb_connection_t *con);
@@ -223,29 +226,21 @@ static int connection(void *con_in)
 
 #define EXIT_THREAD(s) \
 	do { \
-		mtx_lock(&con->lock); \
 		con->state = s; \
-		mtx_unlock(&con->lock); \
-		thrd_exit(0); \
+		puts("EXIT_THREAD"); \
 	} while (0)
 
-	mtx_lock(&con->lock);
 	con->state = TRFB_STATE_WORKING;
-	mtx_unlock(&con->lock);
 
-	if (negotiate(con)) {
-		EXIT_THREAD(TRFB_STATE_ERROR);
-	}
+	if (negotiate(con)) EXIT_THREAD(TRFB_STATE_ERROR);
+	
 	trfb_msg("I:negotiation done");
 
+	// final loop
 	for (;;) {
-		check_stopped(con);
+		//check_stopped(con);
 
 		l = trfb_connection_read(con, &type, 1);
-		if (l < 0) {
-			EXIT_THREAD(TRFB_STATE_ERROR);
-		}
-
 		if (l == 1) {
 			trfb_msg("I:message[%d]", type);
 
@@ -260,8 +255,17 @@ static int connection(void *con_in)
 
 			msg_types[i].process(con);
 		}
+		else if (l < 0) {
+			trfb_msg("E:trfb_connection_read [%d]", l);
+			EXIT_THREAD(TRFB_STATE_ERROR);
+		}
+		
+		/* update framebuffer, waitflip */
+		sleep(1);
+		/* do not stress in tests... */
 	}
-
+	
+	/* not reached */	
 	return 0;
 }
 
@@ -418,9 +422,7 @@ static void SetPixelFormat(trfb_connection_t *con)
 
 	if (con->fb)
 		trfb_framebuffer_free(con->fb);
-	mtx_lock(&con->server->lock);
 	con->fb = trfb_framebuffer_create_of_format(con->server->fb->width, con->server->fb->width, &con->format);
-	mtx_unlock(&con->server->lock);
 
 	if (!con->fb) {
 		trfb_msg("Can not create framebuffer for requested format.");
@@ -444,9 +446,7 @@ static void UpdateRequest(trfb_connection_t *con)
 	trfb_msg("I:client requested update: (%d, %d) - (%d, %d)", (int)xpos, (int)ypos, (int)width, (int)height);
 
 	if (!con->fb) {
-		mtx_lock(&con->server->fb->lock);
 		con->fb = trfb_framebuffer_copy(con->server->fb);
-		mtx_unlock(&con->server->fb->lock);
 
 		if (!con->fb) {
 			trfb_msg("Can not copy server framebuffer");
@@ -454,13 +454,10 @@ static void UpdateRequest(trfb_connection_t *con)
 		}
 	}
 
-	mtx_lock(&con->server->fb->lock);
 	if (trfb_framebuffer_convert(con->fb, con->server->fb)) {
-		mtx_unlock(&con->server->fb->lock);
 		trfb_msg("Can not convert server framebuffer");
 		EXIT_THREAD(TRFB_STATE_ERROR);
 	}
-	mtx_unlock(&con->server->fb->lock);
 
 	if (width > con->fb->width) {
 		width = con->fb->width;

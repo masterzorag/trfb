@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
+#include <unistd.h>
 
 ssize_t trfb_send_all(int sock, const void *buf, size_t len)
 {
@@ -16,12 +17,12 @@ ssize_t trfb_send_all(int sock, const void *buf, size_t len)
 			if (errno == EAGAIN || errno == EINTR) {
 				continue;
 			}
-			trfb_msg("write failed: %s", strerror(errno));
+//			trfb_msg("write failed: %s", strerror(errno));
 			return -1;
 		}
 
 		if (l == 0) {
-			trfb_msg("connection closed");
+//			trfb_msg("connection closed");
 			return 0;
 		}
 
@@ -43,12 +44,12 @@ ssize_t trfb_recv_all(int sock, void *buf, size_t len)
 			if (errno == EAGAIN || errno == EINTR) {
 				continue;
 			}
-			trfb_msg("read failed: %s", strerror(errno));
+//			trfb_msg("read failed: %s", strerror(errno));
 			return -1;
 		}
 
 		if (l == 0) {
-			trfb_msg("connection closed");
+//			trfb_msg("connection closed");
 			return 0;
 		}
 
@@ -95,14 +96,14 @@ int trfb_msg_protocol_version_decode(trfb_msg_protocol_version_t *msg, const uns
 	char mbuf[13];
 
 	if (len != 12) {
-		trfb_msg("Invalid ProtocolVersion message");
+//		trfb_msg("Invalid ProtocolVersion message");
 		return -1;
 	}
 
 	if (memcmp(buf, "RFB 003.00", 10) || buf[11] != '\n') {
 		memcpy(mbuf, buf, 12);
 		mbuf[12] = 0;
-		trfb_msg("Invalid ProtocolVersion message. Using version 3. (%s)", mbuf);
+//		trfb_msg("Invalid ProtocolVersion message. Using version 3. (%s)", mbuf);
 		msg->proto = trfb_v3;
 		return 0;
 	}
@@ -141,7 +142,7 @@ int trfb_msg_protocol_version_recv(trfb_msg_protocol_version_t *msg, int sock)
 
 	len = trfb_recv_all(sock, buf, sizeof(buf));
 	if (len != sizeof(buf)) {
-		trfb_msg("read failed");
+//		trfb_msg("read failed");
 		return -1;
 	}
 

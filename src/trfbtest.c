@@ -1,5 +1,5 @@
-#include "trfb.h"
-#include <c11threads.h>
+#include <trfb.h>
+//#include <c11threads.h>
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
@@ -48,6 +48,11 @@ int main(int argc, char *argv[])
 	const char* av[32];
 	unsigned i, j, di = 0;
 
+//	srv = &s2;
+	
+//	int res = server(s2);
+//	printf("server returns %d\n", res);
+		
 	srv = trfb_server_create(640, 480);
 	if (!srv) {
 		fprintf(stderr, "Error: can't create server!\n");
@@ -58,11 +63,14 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Error: can't bind!\n");
 		return 1;
 	}
-
-	if (trfb_server_start(srv)) {
+	trfb_msg("I:binded to sock %d", srv->sock);
+	
+	if (trfb_server_start(srv)) {									//we stay here
 		fprintf(stderr, "Error: can't start server!\n");
 		return 1;
 	}
+
+//	not reached
 
 	for (;;) {
 		for (i = 0; i < 256; i++) {

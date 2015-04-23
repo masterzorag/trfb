@@ -47,11 +47,6 @@ int main(int argc, char *argv[])
 	int ac;
 	const char* av[32];
 	unsigned i, j, di = 0;
-
-//	srv = &s2;
-	
-//	int res = server(s2);
-//	printf("server returns %d\n", res);
 		
 	srv = trfb_server_create(640, 480);
 	if (!srv) {
@@ -65,13 +60,17 @@ int main(int argc, char *argv[])
 	}
 	trfb_msg("I:binded to sock %d", srv->sock);
 	
-	if (trfb_server_start(srv)) {									//we stay here
+	if (trfb_server_start(srv)) {				// we stay here
 		fprintf(stderr, "Error: can't start server!\n");
 		return 1;
 	}
 
-//	not reached
+	/* not reached */
 
+	/* 
+	 * render (play) the remote framebuffer
+	 * in this thread aware port, we should start expose data when connection occurs
+	 */
 	for (;;) {
 		for (i = 0; i < 256; i++) {
 			for (j = 0; j < 256; j++) {

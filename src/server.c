@@ -28,10 +28,12 @@ int trfb_server_start(trfb_server_t *srv)
 		call main processing function, we does not return
 		callchain:
 			server,
-			
+			 connection, negotiate
+			  loop into connection
 	*/
 	int res = server(srv);
 	
+	/* not reached */
 	for (;;) {
 		if (srv->state == TRFB_STATE_WORKING) {
 			trfb_msg("I:server started!");
@@ -45,7 +47,7 @@ int trfb_server_start(trfb_server_t *srv)
 
 		xsleep(1);
 	}
-	return 0; /* not reached */
+	return 0; 
 }
 
 static void stop_all_connections(trfb_server_t *srv);
@@ -72,7 +74,8 @@ int server(void *srv_in)
 	srv->state = TRFB_STATE_WORKING;
 
 	if (listen(srv->sock, 8)) {
-		trfb_msg("listen failed");		EXIT_THREAD(TRFB_STATE_ERROR);	
+		trfb_msg("listen failed");		
+		EXIT_THREAD(TRFB_STATE_ERROR);	
 	}
 
 	for (;;) {
@@ -100,7 +103,7 @@ int server(void *srv_in)
 			if (sock >= 0) {
 				trfb_msg("I:finally! sock[%d]", sock);
 				
-				con = trfb_connection_create(srv, sock, &addr, addrlen);		// --> jump into
+				con = trfb_connection_create(srv, sock, &addr, addrlen); // --> jump into
 				if (!con) {
 					trfb_msg("W:can not create new connection");
 				} else {
@@ -172,4 +175,3 @@ static void stop_all_connections(trfb_server_t *srv)
 	trfb_msg("I:all clients have been stoped...");
 	return;
 }
-

@@ -238,7 +238,7 @@ static int connection(void *con_in)
 
 	// final loop
 	for (;;) {
-		//check_stopped(con);
+		check_stopped(con);
 
 		l = trfb_connection_read(con, &type, 1);
 		if (l == 1) {
@@ -254,15 +254,27 @@ static int connection(void *con_in)
 			}
 
 			msg_types[i].process(con);
+			
+			/* 
+		 	 * render (play) the remote framebuffer
+			 */
+			unsigned i, j, di = 0;
+					
+			for (i = 0; i < 256; i++) {
+				for (j = 0; j < 256; j++) {
+					trfb_framebuffer_set_pixel(con->server->fb, (i + di) % 256, j, TRFB_RGB(i, j, 100));
+				}
+			}
+			di = (di + 10) % 256;
+			
 		}
 		else if (l < 0) {
 			trfb_msg("E:trfb_connection_read [%d]", l);
 			EXIT_THREAD(TRFB_STATE_ERROR);
 		}
-		
-		/* update framebuffer, waitflip */
-		sleep(1);
+
 		/* do not stress in tests... */
+		sleep(1);
 	}
 	
 	/* not reached */	

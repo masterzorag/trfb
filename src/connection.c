@@ -254,9 +254,8 @@ static int connection(void *con_in)
 			}
 
 			msg_types[i].process(con);
-			
 			/* 
-		 	 * render (play) the remote framebuffer
+		 	 * render (play) the remote (server) framebuffer
 			 */
 			unsigned i, j, di = 0;
 					
@@ -264,8 +263,14 @@ static int connection(void *con_in)
 				for (j = 0; j < 256; j++) {
 					trfb_framebuffer_set_pixel(con->server->fb, (i + di) % 256, j, TRFB_RGB(i, j, 100));
 				}
+				//di = (di + 10) % 256;
 			}
-			di = (di + 10) % 256;
+			/*
+				draw words with 1bpp hardcoded xbm font
+			*/
+			xbm_print(10, 300, "xbm_font implementation", con->server->fb);
+			xbm_print(20, 320, "2015, masterzorag*gmail.com", con->server->fb);			
+			xbm_print(390, 30, "razor.ttf", con->server->fb);
 			
 		}
 		else if (l < 0) {
@@ -274,7 +279,7 @@ static int connection(void *con_in)
 		}
 
 		/* do not stress in tests... */
-		sleep(1);
+		sleep(0.8);
 	}
 	
 	/* not reached */	

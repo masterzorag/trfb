@@ -236,7 +236,12 @@ static int connection(void *con_in)
 	
 	trfb_msg("I:negotiation done");
 
-	// final loop
+	/*
+	 *	final loop, draws stuff
+	 */	 
+
+	init(/* stars */);
+
 	for (;;) {
 		check_stopped(con);
 
@@ -255,19 +260,28 @@ static int connection(void *con_in)
 
 			msg_types[i].process(con);
 			/* 
-		 	 * render (play) the remote (server) framebuffer
+		 	 * draw to the remote framebuffer (server side)
 			 */
 			unsigned i, j, di = 0;
 					
-			for (i = 0; i < 256; i++) {
-				for (j = 0; j < 256; j++) {
-					trfb_framebuffer_set_pixel(con->server->fb, (i + di) % 256, j, TRFB_RGB(i, j, 100));
+			/* clear the screen */
+			for (i = 0; i < con->server->fb->width; i++) {
+				for (j = 0; j < con->server->fb->height; j++) {
+					trfb_framebuffer_set_pixel(con->server->fb, i, j, TRFB_RGB(0, 0, 0));
 				}
+			}
+
+			move(/* stars into */con->server->fb);
+					
+			/* draw a colored square					
+			for (i = 0; i < 256; i++) {
+				for (j = 0; j < 256; j++)
+					trfb_framebuffer_set_pixel(con->server->fb, (i + di) % 256, j, TRFB_RGB(i, j, 100));
 				//di = (di + 10) % 256;
 			}
-			/*
-				draw words with 1bpp hardcoded xbm font
 			*/
+			
+			/* draw text with 1bpp hardcoded xbm font */
 			xbm_print(10, 300, "xbm_font implementation", con->server->fb);
 			xbm_print(20, 320, "2015, masterzorag*gmail.com", con->server->fb);			
 			xbm_print(390, 30, "razor.ttf", con->server->fb);
@@ -279,7 +293,7 @@ static int connection(void *con_in)
 		}
 
 		/* do not stress in tests... */
-		sleep(0.8);
+		//sleep(0.8);
 	}
 	
 	/* not reached */	
